@@ -15,6 +15,7 @@ import Dashboard from "./pages/Dashboard";
 import Generate from "./pages/Generate";
 import Edit from "./pages/Edit";
 import Post from "./pages/Post";
+import Admin from "./pages/Admin"; // Import the new Admin page
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient({
@@ -43,6 +44,7 @@ const App = () => (
               <Route path="/generate" element={<Generate />} />
               <Route path="/edit/:id" element={<Edit />} />
               <Route path="/post/:id" element={<Post />} />
+              <Route path="/admin" element={<Admin />} /> {/* Add the Admin route */}
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AnimatePresence>

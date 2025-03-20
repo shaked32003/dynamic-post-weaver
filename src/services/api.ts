@@ -6,7 +6,8 @@ import {
   AuthPayload,
   User,
   AuthResponse,
-  RateLimitInfo 
+  RateLimitInfo,
+  AdminStats
 } from "@/types";
 
 // This is a mock API service for frontend development
@@ -158,6 +159,20 @@ export const authAPI = {
       // In a real app, this would invalidate the JWT token
       localStorage.removeItem("isAuthenticated");
       localStorage.removeItem("user");
+    });
+  },
+  
+  getCurrentUser: async (): Promise<User> => {
+    return apiErrorHandler(async () => {
+      // Simulate API call
+      await delay(500);
+      
+      const user = getUserFromStorage();
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+      
+      return user;
     });
   }
 };
@@ -453,6 +468,160 @@ export const contentAPI = {
       }
       
       return getUserRateLimit(user.id || "unknown");
+    });
+  }
+};
+
+// Admin API
+export const adminAPI = {
+  getAdminStats: async (): Promise<AdminStats> => {
+    return apiErrorHandler(async () => {
+      // Simulate API call
+      await delay(1000);
+      
+      const user = getUserFromStorage();
+      
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+      
+      if (user.role !== "admin") {
+        throw new Error("Unauthorized: Admin access required");
+      }
+      
+      const posts = getStoredPosts();
+      
+      // Get all users (in a real app, this would be from a users table)
+      // For our mock, we'll extract unique user IDs from posts
+      const uniqueUserIds = new Set(posts.map(post => post.userId));
+      
+      // Calculate statistics
+      const stats: AdminStats = {
+        totalUsers: uniqueUserIds.size || 0,
+        totalPosts: posts.length,
+        publishedPosts: posts.filter(post => post.isPublished).length,
+        scheduledPosts: posts.filter(post => post.publishDate && new Date(post.publishDate) > new Date()).length
+      };
+      
+      return stats;
+    });
+  },
+  
+  getAllUsers: async (): Promise<User[]> => {
+    return apiErrorHandler(async () => {
+      // Simulate API call
+      await delay(1000);
+      
+      const user = getUserFromStorage();
+      
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+      
+      if (user.role !== "admin") {
+        throw new Error("Unauthorized: Admin access required");
+      }
+      
+      // In a real app, this would fetch all users from a database
+      // For our mock, we'll create a small set of sample users
+      const currentUser = getUserFromStorage();
+      
+      // Make sure the current user is an admin in local storage
+      if (currentUser && !currentUser.role) {
+        currentUser.role = "admin";
+        localStorage.setItem("user", JSON.stringify(currentUser));
+      }
+      
+      const mockUsers: User[] = [
+        {
+          id: currentUser?.id || "admin-1",
+          email: currentUser?.email || "admin@example.com",
+          name: "Admin User",
+          role: "admin",
+          createdAt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+        },
+        {
+          id: "user-1",
+          email: "user1@example.com",
+          name: "Regular User 1",
+          role: "user",
+          createdAt: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString()
+        },
+        {
+          id: "user-2",
+          email: "user2@example.com",
+          name: "Regular User 2",
+          role: "user",
+          createdAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString()
+        },
+        {
+          id: "user-3",
+          email: "user3@example.com",
+          name: "Regular User 3",
+          role: "user",
+          createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
+        }
+      ];
+      
+      return mockUsers;
+    });
+  },
+  
+  getAllPosts: async (): Promise<Post[]> => {
+    return apiErrorHandler(async () => {
+      // Simulate API call
+      await delay(1500);
+      
+      const user = getUserFromStorage();
+      
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+      
+      if (user.role !== "admin") {
+        throw new Error("Unauthorized: Admin access required");
+      }
+      
+      // Get all posts regardless of user
+      return getStoredPosts();
+    });
+  },
+  
+  updateUserRole: async (userId: string, role: "user" | "admin"): Promise<User> => {
+    return apiErrorHandler(async () => {
+      // Simulate API call
+      await delay(1000);
+      
+      const currentUser = getUserFromStorage();
+      
+      if (!currentUser) {
+        throw new Error("User not authenticated");
+      }
+      
+      if (currentUser.role !== "admin") {
+        throw new Error("Unauthorized: Admin access required");
+      }
+      
+      // In a real app, this would update the user role in the database
+      // For our mock, we'll just return a successful response
+      
+      // If updating the current user, update localStorage
+      if (userId === currentUser.id) {
+        const updatedUser = {
+          ...currentUser,
+          role
+        };
+        localStorage.setItem("user", JSON.stringify(updatedUser));
+        return updatedUser;
+      }
+      
+      // For other users, just return a mock response
+      return {
+        id: userId,
+        email: `user-${userId}@example.com`,
+        role,
+        updatedAt: new Date().toISOString()
+      };
     });
   }
 };

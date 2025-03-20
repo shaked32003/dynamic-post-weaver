@@ -4,6 +4,7 @@ export interface User {
   email: string;
   name?: string;
   createdAt?: string;
+  role?: "user" | "admin"; // Added role field
 }
 
 export interface Post {
@@ -50,4 +51,12 @@ export interface RateLimitInfo {
   current: number;
   remaining: number;
   resetTime: Date;
+}
+
+// Admin-specific types
+export interface AdminStats {
+  totalUsers: number;
+  totalPosts: number;
+  publishedPosts: number;
+  scheduledPosts: number;
 }
