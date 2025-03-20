@@ -92,8 +92,8 @@ const Post = () => {
               <Skeleton className="h-40 w-full" />
             </div>
           ) : post ? (
-            <div className="glassmorphism p-8 rounded-xl shadow-md">
-              <article className="prose prose-stone dark:prose-invert max-w-none">
+            <div className="glassmorphism p-8 md:p-10 rounded-xl shadow-md">
+              <article className="prose prose-stone dark:prose-invert prose-headings:font-display prose-p:text-base prose-p:leading-relaxed prose-p:my-3 prose-headings:leading-tight prose-li:my-1 prose-img:my-6 max-w-none">
                 <h1 className="text-3xl md:text-4xl font-display font-bold mb-4 text-center">
                   {post.title}
                 </h1>
@@ -112,7 +112,7 @@ const Post = () => {
 
                 <Separator className="my-6" />
 
-                <ReactMarkdown>{post.content}</ReactMarkdown>
+                <ReactMarkdown className="text-balance">{post.content}</ReactMarkdown>
               </article>
             </div>
           ) : (

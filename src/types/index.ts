@@ -1,4 +1,3 @@
-
 export interface User {
   id?: string;
   email: string;
@@ -18,6 +17,7 @@ export interface Post {
   updatedAt: string;
   userId: string;
   publishDate?: string; // For scheduled publishing
+  readTime?: number; // New field for read time estimation
 }
 
 export interface GenerateContentPayload {

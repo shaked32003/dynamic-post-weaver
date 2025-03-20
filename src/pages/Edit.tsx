@@ -237,6 +237,7 @@ const Edit = () => {
                     value={formData.title}
                     onChange={handleInputChange}
                     placeholder="Enter a title"
+                    className="font-medium"
                   />
                 </div>
 
@@ -303,9 +304,9 @@ const Edit = () => {
 
               <TabsContent value="preview">
                 <div className="glassmorphism p-8 rounded-lg shadow-md">
-                  <h1 className="text-3xl font-bold mb-6">{formData.title}</h1>
-                  <article className="prose prose-stone dark:prose-invert max-w-none">
-                    <ReactMarkdown>{formData.content}</ReactMarkdown>
+                  <h1 className="text-3xl font-bold mb-6 font-display">{formData.title || "Untitled"}</h1>
+                  <article className="prose prose-stone dark:prose-invert prose-headings:font-display prose-p:text-base prose-p:leading-relaxed prose-p:my-3 prose-headings:leading-tight prose-li:my-1 prose-img:my-6 max-w-none">
+                    <ReactMarkdown>{formData.content || "No content yet. Start writing in the editor tab!"}</ReactMarkdown>
                   </article>
                 </div>
               </TabsContent>

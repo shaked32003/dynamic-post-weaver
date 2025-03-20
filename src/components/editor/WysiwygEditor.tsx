@@ -41,12 +41,12 @@ export const WysiwygEditor: React.FC<WysiwygEditorProps> = ({
       Link.configure({
         openOnClick: false,
         HTMLAttributes: {
-          class: "text-primary underline",
+          class: "text-primary underline decoration-primary/30 hover:decoration-primary transition-all",
         },
       }),
       Image.configure({
         HTMLAttributes: {
-          class: "rounded-md max-w-full",
+          class: "rounded-md max-w-full my-4 shadow-sm border border-border",
         },
       }),
     ],
@@ -56,7 +56,7 @@ export const WysiwygEditor: React.FC<WysiwygEditorProps> = ({
     },
     editorProps: {
       attributes: {
-        class: "prose prose-stone dark:prose-invert max-w-none focus:outline-none min-h-[300px] p-4",
+        class: "prose prose-stone dark:prose-invert prose-headings:font-display prose-p:text-base prose-p:leading-relaxed prose-p:my-3 prose-headings:leading-tight prose-li:my-1 prose-img:my-6 max-w-none focus:outline-none min-h-[300px] p-6",
       },
     },
   });
@@ -99,8 +99,8 @@ export const WysiwygEditor: React.FC<WysiwygEditorProps> = ({
   };
 
   return (
-    <div className="border rounded-md">
-      <div className="bg-muted p-2 border-b flex flex-wrap gap-1">
+    <div className="border rounded-md shadow-sm overflow-hidden">
+      <div className="bg-muted/50 p-2 border-b flex flex-wrap gap-1">
         <Button
           type="button"
           variant="ghost"
@@ -206,13 +206,14 @@ export const WysiwygEditor: React.FC<WysiwygEditorProps> = ({
       </div>
 
       {showLinkInput && (
-        <div className="p-2 border-b flex items-center gap-2">
+        <div className="p-2 border-b flex items-center gap-2 bg-background">
           <input
             type="url"
             value={linkUrl}
             onChange={(e) => setLinkUrl(e.target.value)}
             placeholder="Enter URL"
             className="flex-1 p-1 border rounded text-sm"
+            autoFocus
           />
           <Button type="button" size="sm" onClick={addLink}>
             Add Link
@@ -221,13 +222,14 @@ export const WysiwygEditor: React.FC<WysiwygEditorProps> = ({
       )}
 
       {showImageInput && (
-        <div className="p-2 border-b flex items-center gap-2">
+        <div className="p-2 border-b flex items-center gap-2 bg-background">
           <input
             type="url"
             value={imageUrl}
             onChange={(e) => setImageUrl(e.target.value)}
             placeholder="Enter image URL"
             className="flex-1 p-1 border rounded text-sm"
+            autoFocus
           />
           <Button type="button" size="sm" onClick={addImage}>
             Add Image
@@ -235,7 +237,9 @@ export const WysiwygEditor: React.FC<WysiwygEditorProps> = ({
         </div>
       )}
 
-      <EditorContent editor={editor} />
+      <div className="editor-container bg-background/50">
+        <EditorContent editor={editor} />
+      </div>
     </div>
   );
 };
