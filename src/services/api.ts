@@ -90,9 +90,7 @@ const updateUserRateLimit = (userId: string): RateLimitInfo => {
 
 // Error handling wrapper
 const apiErrorHandler = <T>(apiCall: () => Promise<T>): Promise<T> => {
-  try {
-    return await apiCall();
-  } catch (error) {
+  return apiCall().catch(error => {
     console.error("API Error:", error);
     
     // Log the error (in a real app, this might send to a logging service)
@@ -109,7 +107,7 @@ const apiErrorHandler = <T>(apiCall: () => Promise<T>): Promise<T> => {
     localStorage.setItem("error_logs", JSON.stringify(errorLogs));
     
     throw error; // Re-throw to let the UI handle it
-  }
+  });
 };
 
 // Authentication
