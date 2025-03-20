@@ -1,4 +1,3 @@
-
 import { delay, generateId, getUserFromStorage } from "@/lib/utils";
 import { 
   Post, 
@@ -6,7 +5,8 @@ import {
   SavePostPayload,
   AuthPayload,
   User,
-  AuthResponse 
+  AuthResponse,
+  RateLimitInfo 
 } from "@/types";
 
 // This is a mock API service for frontend development
@@ -14,6 +14,9 @@ import {
 
 // Simulate a database with localStorage
 const POSTS_STORAGE_KEY = "content_forge_posts";
+const RATE_LIMIT_STORAGE_KEY = "content_forge_rate_limits";
+const RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour in milliseconds
+const MAX_REQUESTS_PER_HOUR = 20;
 
 // Helper function to get posts from localStorage
 const getStoredPosts = (): Post[] => {
@@ -26,287 +29,460 @@ const savePostsToStorage = (posts: Post[]): void => {
   localStorage.setItem(POSTS_STORAGE_KEY, JSON.stringify(posts));
 };
 
+// Rate limiting functions
+const getUserRateLimit = (userId: string): RateLimitInfo => {
+  const rateLimitsString = localStorage.getItem(RATE_LIMIT_STORAGE_KEY);
+  const rateLimits = rateLimitsString ? JSON.parse(rateLimitsString) : {};
+  
+  if (!rateLimits[userId]) {
+    const newLimit: RateLimitInfo = {
+      limit: MAX_REQUESTS_PER_HOUR,
+      current: 0,
+      remaining: MAX_REQUESTS_PER_HOUR,
+      resetTime: new Date(Date.now() + RATE_LIMIT_WINDOW)
+    };
+    rateLimits[userId] = newLimit;
+    localStorage.setItem(RATE_LIMIT_STORAGE_KEY, JSON.stringify(rateLimits));
+    return newLimit;
+  }
+  
+  // Check if we need to reset the rate limit
+  const limitData = rateLimits[userId];
+  const resetTime = new Date(limitData.resetTime);
+  
+  if (Date.now() > resetTime.getTime()) {
+    // Reset the rate limit
+    limitData.current = 0;
+    limitData.remaining = MAX_REQUESTS_PER_HOUR;
+    limitData.resetTime = new Date(Date.now() + RATE_LIMIT_WINDOW);
+    localStorage.setItem(RATE_LIMIT_STORAGE_KEY, JSON.stringify(rateLimits));
+  }
+  
+  return limitData;
+};
+
+const updateUserRateLimit = (userId: string): RateLimitInfo => {
+  const rateLimitsString = localStorage.getItem(RATE_LIMIT_STORAGE_KEY);
+  const rateLimits = rateLimitsString ? JSON.parse(rateLimitsString) : {};
+  
+  if (!rateLimits[userId]) {
+    return getUserRateLimit(userId);
+  }
+  
+  const limitData = rateLimits[userId];
+  const resetTime = new Date(limitData.resetTime);
+  
+  if (Date.now() > resetTime.getTime()) {
+    // Reset the rate limit
+    limitData.current = 1;
+    limitData.remaining = MAX_REQUESTS_PER_HOUR - 1;
+    limitData.resetTime = new Date(Date.now() + RATE_LIMIT_WINDOW);
+  } else {
+    // Increment the request count
+    limitData.current += 1;
+    limitData.remaining = Math.max(0, limitData.limit - limitData.current);
+  }
+  
+  rateLimits[userId] = limitData;
+  localStorage.setItem(RATE_LIMIT_STORAGE_KEY, JSON.stringify(rateLimits));
+  return limitData;
+};
+
+// Error handling wrapper
+const apiErrorHandler = <T>(apiCall: () => Promise<T>): Promise<T> => {
+  try {
+    return await apiCall();
+  } catch (error) {
+    console.error("API Error:", error);
+    
+    // Log the error (in a real app, this might send to a logging service)
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorLog = {
+      timestamp: new Date().toISOString(),
+      error: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined
+    };
+    
+    // Store error logs (in a real app, this would go to a proper logging system)
+    const errorLogs = JSON.parse(localStorage.getItem("error_logs") || "[]");
+    errorLogs.push(errorLog);
+    localStorage.setItem("error_logs", JSON.stringify(errorLogs));
+    
+    throw error; // Re-throw to let the UI handle it
+  }
+};
+
 // Authentication
 export const authAPI = {
   login: async (payload: AuthPayload): Promise<AuthResponse> => {
-    // Simulate API call
-    await delay(1500);
-    
-    // In a real app, this would verify credentials with a backend
-    const user: User = {
-      id: generateId(),
-      email: payload.email,
-    };
-    
-    return {
-      user,
-      token: `mock-jwt-token-${Date.now()}`,
-    };
+    return apiErrorHandler(async () => {
+      // Simulate API call
+      await delay(1500);
+      
+      // In a real app, this would verify credentials with a backend
+      const user: User = {
+        id: generateId(),
+        email: payload.email,
+        createdAt: new Date().toISOString()
+      };
+      
+      return {
+        user,
+        token: `mock-jwt-token-${Date.now()}`,
+      };
+    });
   },
   
   signup: async (payload: AuthPayload): Promise<AuthResponse> => {
-    // Simulate API call
-    await delay(2000);
-    
-    // In a real app, this would create a new user in the database
-    const user: User = {
-      id: generateId(),
-      email: payload.email,
-    };
-    
-    return {
-      user,
-      token: `mock-jwt-token-${Date.now()}`,
-    };
+    return apiErrorHandler(async () => {
+      // Simulate API call
+      await delay(2000);
+      
+      // In a real app, this would create a new user in the database
+      const user: User = {
+        id: generateId(),
+        email: payload.email,
+        createdAt: new Date().toISOString()
+      };
+      
+      return {
+        user,
+        token: `mock-jwt-token-${Date.now()}`,
+      };
+    });
   },
   
   logout: async (): Promise<void> => {
-    // Simulate API call
-    await delay(500);
-    
-    // In a real app, this would invalidate the JWT token
-    localStorage.removeItem("isAuthenticated");
-    localStorage.removeItem("user");
+    return apiErrorHandler(async () => {
+      // Simulate API call
+      await delay(500);
+      
+      // In a real app, this would invalidate the JWT token
+      localStorage.removeItem("isAuthenticated");
+      localStorage.removeItem("user");
+    });
   }
 };
 
 // Content generation and management
 export const contentAPI = {
   generateContent: async (payload: GenerateContentPayload): Promise<Post> => {
-    // Simulate API call with longer delay for content generation
-    await delay(3000);
-    
-    // In a real app, this would call OpenAI or another LLM API
-    const user = getUserFromStorage();
-    
-    if (!user) {
-      throw new Error("User not authenticated");
-    }
-    
-    // Create mock generated content
-    const title = `${payload.topic} in ${payload.style} Style`;
-    
-    // Create content based on topic and style
-    let content = "";
-    
-    if (payload.topic.toLowerCase().includes("technology")) {
-      content = `
-        # The Evolution of Technology
+    return apiErrorHandler(async () => {
+      // Simulate API call with longer delay for content generation
+      await delay(3000);
+      
+      // Check user authentication
+      const user = getUserFromStorage();
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+      
+      // Check rate limit
+      const rateLimit = updateUserRateLimit(user.id || "unknown");
+      if (rateLimit.remaining <= 0) {
+        const resetTime = new Date(rateLimit.resetTime);
+        throw new Error(`Rate limit exceeded. Try again after ${resetTime.toLocaleTimeString()}`);
+      }
+      
+      // Create mock generated content
+      const title = `${payload.topic} in ${payload.style} Style`;
+      
+      // Create content based on topic and style
+      let content = "";
+      
+      if (payload.topic.toLowerCase().includes("technology")) {
+        content = `
+          # The Evolution of Technology
 
-        In today's rapidly advancing technological landscape, innovation is the key driver of progress. From artificial intelligence to quantum computing, the boundaries of what's possible are constantly expanding.
+          In today's rapidly advancing technological landscape, innovation is the key driver of progress. From artificial intelligence to quantum computing, the boundaries of what's possible are constantly expanding.
 
-        ## Current Trends
+          ## Current Trends
 
-        - **Artificial Intelligence**: Machine learning algorithms are becoming more sophisticated.
-        - **Blockchain**: Decentralized applications are revolutionizing finance.
-        - **Internet of Things**: Connected devices are creating smarter homes and cities.
+          - **Artificial Intelligence**: Machine learning algorithms are becoming more sophisticated.
+          - **Blockchain**: Decentralized applications are revolutionizing finance.
+          - **Internet of Things**: Connected devices are creating smarter homes and cities.
 
-        ## Future Implications
+          ## Future Implications
 
-        As these technologies evolve, we can expect significant changes in how we work, communicate, and live. The integration of AI into everyday tools will automate routine tasks, while blockchain may transform how we verify transactions and maintain records.
+          As these technologies evolve, we can expect significant changes in how we work, communicate, and live. The integration of AI into everyday tools will automate routine tasks, while blockchain may transform how we verify transactions and maintain records.
 
-        ## Conclusion
+          ## Conclusion
 
-        Staying informed about technological advancements is essential for businesses and individuals alike. The ability to adapt to these changes will determine success in the digital age.
-      `;
-    } else if (payload.topic.toLowerCase().includes("health")) {
-      content = `
-        # Holistic Approaches to Health and Wellness
+          Staying informed about technological advancements is essential for businesses and individuals alike. The ability to adapt to these changes will determine success in the digital age.
+        `;
+      } else if (payload.topic.toLowerCase().includes("health")) {
+        content = `
+          # Holistic Approaches to Health and Wellness
 
-        Maintaining optimal health involves more than just addressing physical symptoms. A holistic approach considers the interconnectedness of mind, body, and spirit.
+          Maintaining optimal health involves more than just addressing physical symptoms. A holistic approach considers the interconnectedness of mind, body, and spirit.
 
-        ## Key Components
+          ## Key Components
 
-        - **Nutrition**: A balanced diet provides essential nutrients for bodily functions.
-        - **Physical Activity**: Regular exercise strengthens the body and improves mood.
-        - **Mental Wellbeing**: Practices like meditation reduce stress and promote clarity.
+          - **Nutrition**: A balanced diet provides essential nutrients for bodily functions.
+          - **Physical Activity**: Regular exercise strengthens the body and improves mood.
+          - **Mental Wellbeing**: Practices like meditation reduce stress and promote clarity.
 
-        ## Integrative Practices
+          ## Integrative Practices
 
-        Many people are turning to integrative health practices that combine conventional medicine with complementary approaches. These might include acupuncture, yoga, or herbal supplements.
+          Many people are turning to integrative health practices that combine conventional medicine with complementary approaches. These might include acupuncture, yoga, or herbal supplements.
 
-        ## Preventative Care
+          ## Preventative Care
 
-        Taking proactive steps to prevent illness is often more effective than treating conditions after they develop. Regular check-ups, screenings, and lifestyle modifications play crucial roles in preventative care.
-      `;
-    } else {
-      content = `
-        # Exploring ${payload.topic}
+          Taking proactive steps to prevent illness is often more effective than treating conditions after they develop. Regular check-ups, screenings, and lifestyle modifications play crucial roles in preventative care.
+        `;
+      } else {
+        content = `
+          # Exploring ${payload.topic}
 
-        ${payload.topic} represents a fascinating area of study with numerous implications for our understanding of the world. This field continues to evolve, offering new insights and applications.
+          ${payload.topic} represents a fascinating area of study with numerous implications for our understanding of the world. This field continues to evolve, offering new insights and applications.
 
-        ## Historical Context
+          ## Historical Context
 
-        The development of ${payload.topic} can be traced through various historical periods, each contributing unique perspectives and methodologies. Early pioneers laid the groundwork for modern approaches.
+          The development of ${payload.topic} can be traced through various historical periods, each contributing unique perspectives and methodologies. Early pioneers laid the groundwork for modern approaches.
 
-        ## Current Applications
+          ## Current Applications
 
-        Today, ${payload.topic} influences multiple sectors:
+          Today, ${payload.topic} influences multiple sectors:
 
-        1. Research and academia
-        2. Industrial applications
-        3. Consumer products and services
-        4. Educational frameworks
+          1. Research and academia
+          2. Industrial applications
+          3. Consumer products and services
+          4. Educational frameworks
 
-        ## Future Directions
+          ## Future Directions
 
-        As we look ahead, several promising avenues for advancement in ${payload.topic} emerge. Continued research and innovation will likely yield breakthroughs that reshape our understanding and implementation.
-      `;
-    }
-    
-    // Adjust style based on input
-    if (payload.style.toLowerCase().includes("professional")) {
-      content = content.replace(/fascinating/g, "significant").replace(/numerous/g, "substantial");
-    } else if (payload.style.toLowerCase().includes("casual")) {
-      content = content.replace(/represents a/g, "is a").replace(/continues to evolve/g, "keeps changing");
-    }
-    
-    return {
-      id: generateId(),
-      title,
-      content,
-      topic: payload.topic,
-      style: payload.style,
-      isPublished: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      userId: user.id || "unknown",
-    };
+          As we look ahead, several promising avenues for advancement in ${payload.topic} emerge. Continued research and innovation will likely yield breakthroughs that reshape our understanding and implementation.
+        `;
+      }
+      
+      // Adjust style based on input
+      if (payload.style.toLowerCase().includes("professional")) {
+        content = content.replace(/fascinating/g, "significant").replace(/numerous/g, "substantial");
+      } else if (payload.style.toLowerCase().includes("casual")) {
+        content = content.replace(/represents a/g, "is a").replace(/continues to evolve/g, "keeps changing");
+      }
+      
+      return {
+        id: generateId(),
+        title,
+        content,
+        topic: payload.topic,
+        style: payload.style,
+        isPublished: false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        userId: user.id || "unknown",
+      };
+    });
   },
   
   savePost: async (payload: SavePostPayload): Promise<Post> => {
-    // Simulate API call
-    await delay(1000);
-    
-    const user = getUserFromStorage();
-    
-    if (!user) {
-      throw new Error("User not authenticated");
-    }
-    
-    const posts = getStoredPosts();
-    const now = new Date().toISOString();
-    
-    // Check if this is an update or a new post
-    if (payload.id) {
-      // Update existing post
+    return apiErrorHandler(async () => {
+      // Simulate API call
+      await delay(1000);
+      
+      const user = getUserFromStorage();
+      
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+      
+      // Check rate limit
+      const rateLimit = updateUserRateLimit(user.id || "unknown");
+      if (rateLimit.remaining <= 0) {
+        const resetTime = new Date(rateLimit.resetTime);
+        throw new Error(`Rate limit exceeded. Try again after ${resetTime.toLocaleTimeString()}`);
+      }
+      
+      const posts = getStoredPosts();
+      const now = new Date().toISOString();
+      
+      // Check if this is an update or a new post
+      if (payload.id) {
+        // Update existing post
+        const updatedPosts = posts.map(post => {
+          if (post.id === payload.id) {
+            return {
+              ...post,
+              title: payload.title,
+              content: payload.content,
+              topic: payload.topic,
+              style: payload.style,
+              isPublished: payload.isPublished ?? post.isPublished,
+              publishDate: payload.publishDate,
+              updatedAt: now,
+            };
+          }
+          return post;
+        });
+        
+        savePostsToStorage(updatedPosts);
+        return updatedPosts.find(post => post.id === payload.id) as Post;
+      } else {
+        // Create new post
+        const newPost: Post = {
+          id: generateId(),
+          title: payload.title,
+          content: payload.content,
+          topic: payload.topic,
+          style: payload.style,
+          isPublished: payload.isPublished ?? false,
+          publishDate: payload.publishDate,
+          createdAt: now,
+          updatedAt: now,
+          userId: user.id || "unknown",
+        };
+        
+        posts.push(newPost);
+        savePostsToStorage(posts);
+        return newPost;
+      }
+    });
+  },
+  
+  getUserPosts: async (): Promise<Post[]> => {
+    return apiErrorHandler(async () => {
+      // Simulate API call
+      await delay(1000);
+      
+      const user = getUserFromStorage();
+      
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+      
+      const posts = getStoredPosts();
+      
+      // Filter posts by user ID
+      return posts.filter(post => post.userId === user.id);
+    });
+  },
+  
+  getPostById: async (id: string): Promise<Post> => {
+    return apiErrorHandler(async () => {
+      // Simulate API call
+      await delay(500);
+      
+      const posts = getStoredPosts();
+      const post = posts.find(post => post.id === id);
+      
+      if (!post) {
+        throw new Error("Post not found");
+      }
+      
+      return post;
+    });
+  },
+  
+  deletePost: async (id: string): Promise<void> => {
+    return apiErrorHandler(async () => {
+      // Simulate API call
+      await delay(800);
+      
+      const user = getUserFromStorage();
+      
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+      
+      // Check rate limit
+      const rateLimit = updateUserRateLimit(user.id || "unknown");
+      if (rateLimit.remaining <= 0) {
+        const resetTime = new Date(rateLimit.resetTime);
+        throw new Error(`Rate limit exceeded. Try again after ${resetTime.toLocaleTimeString()}`);
+      }
+      
+      const posts = getStoredPosts();
+      const filteredPosts = posts.filter(post => post.id !== id);
+      
+      if (posts.length === filteredPosts.length) {
+        throw new Error("Post not found");
+      }
+      
+      savePostsToStorage(filteredPosts);
+    });
+  },
+  
+  publishPost: async (id: string, isPublished: boolean): Promise<Post> => {
+    return apiErrorHandler(async () => {
+      // Simulate API call
+      await delay(800);
+      
+      const user = getUserFromStorage();
+      
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+      
+      // Check rate limit
+      const rateLimit = updateUserRateLimit(user.id || "unknown");
+      if (rateLimit.remaining <= 0) {
+        const resetTime = new Date(rateLimit.resetTime);
+        throw new Error(`Rate limit exceeded. Try again after ${resetTime.toLocaleTimeString()}`);
+      }
+      
+      const posts = getStoredPosts();
+      let updatedPost: Post | undefined;
+      
       const updatedPosts = posts.map(post => {
-        if (post.id === payload.id) {
-          return {
+        if (post.id === id) {
+          updatedPost = {
             ...post,
-            title: payload.title,
-            content: payload.content,
-            topic: payload.topic,
-            style: payload.style,
-            isPublished: payload.isPublished ?? post.isPublished,
-            updatedAt: now,
+            isPublished,
+            updatedAt: new Date().toISOString(),
           };
+          return updatedPost;
         }
         return post;
       });
       
-      savePostsToStorage(updatedPosts);
-      return updatedPosts.find(post => post.id === payload.id) as Post;
-    } else {
-      // Create new post
-      const newPost: Post = {
-        id: generateId(),
-        title: payload.title,
-        content: payload.content,
-        topic: payload.topic,
-        style: payload.style,
-        isPublished: payload.isPublished ?? false,
-        createdAt: now,
-        updatedAt: now,
-        userId: user.id || "unknown",
-      };
-      
-      posts.push(newPost);
-      savePostsToStorage(posts);
-      return newPost;
-    }
-  },
-  
-  getUserPosts: async (): Promise<Post[]> => {
-    // Simulate API call
-    await delay(1000);
-    
-    const user = getUserFromStorage();
-    
-    if (!user) {
-      throw new Error("User not authenticated");
-    }
-    
-    const posts = getStoredPosts();
-    
-    // Filter posts by user ID
-    return posts.filter(post => post.userId === user.id);
-  },
-  
-  getPostById: async (id: string): Promise<Post> => {
-    // Simulate API call
-    await delay(500);
-    
-    const posts = getStoredPosts();
-    const post = posts.find(post => post.id === id);
-    
-    if (!post) {
-      throw new Error("Post not found");
-    }
-    
-    return post;
-  },
-  
-  deletePost: async (id: string): Promise<void> => {
-    // Simulate API call
-    await delay(800);
-    
-    const user = getUserFromStorage();
-    
-    if (!user) {
-      throw new Error("User not authenticated");
-    }
-    
-    const posts = getStoredPosts();
-    const filteredPosts = posts.filter(post => post.id !== id);
-    
-    if (posts.length === filteredPosts.length) {
-      throw new Error("Post not found");
-    }
-    
-    savePostsToStorage(filteredPosts);
-  },
-  
-  publishPost: async (id: string, isPublished: boolean): Promise<Post> => {
-    // Simulate API call
-    await delay(800);
-    
-    const user = getUserFromStorage();
-    
-    if (!user) {
-      throw new Error("User not authenticated");
-    }
-    
-    const posts = getStoredPosts();
-    let updatedPost: Post | undefined;
-    
-    const updatedPosts = posts.map(post => {
-      if (post.id === id) {
-        updatedPost = {
-          ...post,
-          isPublished,
-          updatedAt: new Date().toISOString(),
-        };
-        return updatedPost;
+      if (!updatedPost) {
+        throw new Error("Post not found");
       }
-      return post;
+      
+      savePostsToStorage(updatedPosts);
+      return updatedPost;
+    });
+  },
+  
+  // Function to get rate limit information for the current user
+  getUserRateLimit: async (): Promise<RateLimitInfo> => {
+    return apiErrorHandler(async () => {
+      const user = getUserFromStorage();
+      
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+      
+      return getUserRateLimit(user.id || "unknown");
+    });
+  }
+};
+
+// Create a simple "database logger" for tracking database operations
+export const dbLogger = {
+  logOperation: (operation: string, details: any): void => {
+    const logs = JSON.parse(localStorage.getItem("db_logs") || "[]");
+    logs.push({
+      timestamp: new Date().toISOString(),
+      operation,
+      details,
+      user: getUserFromStorage()?.id || "anonymous"
     });
     
-    if (!updatedPost) {
-      throw new Error("Post not found");
+    // Keep only the last 100 logs to prevent localStorage from getting too large
+    if (logs.length > 100) {
+      logs.shift();
     }
     
-    savePostsToStorage(updatedPosts);
-    return updatedPost;
+    localStorage.setItem("db_logs", JSON.stringify(logs));
+  },
+  
+  getLogs: (): any[] => {
+    return JSON.parse(localStorage.getItem("db_logs") || "[]");
+  },
+  
+  clearLogs: (): void => {
+    localStorage.setItem("db_logs", "[]");
   }
 };

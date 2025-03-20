@@ -3,6 +3,7 @@ export interface User {
   id?: string;
   email: string;
   name?: string;
+  createdAt?: string;
 }
 
 export interface Post {
@@ -15,6 +16,7 @@ export interface Post {
   createdAt: string;
   updatedAt: string;
   userId: string;
+  publishDate?: string; // For scheduled publishing
 }
 
 export interface GenerateContentPayload {
@@ -29,6 +31,7 @@ export interface SavePostPayload {
   topic: string;
   style: string;
   isPublished?: boolean;
+  publishDate?: string;
 }
 
 export interface AuthPayload {
@@ -39,4 +42,12 @@ export interface AuthPayload {
 export interface AuthResponse {
   user: User;
   token: string;
+}
+
+// For rate limiting
+export interface RateLimitInfo {
+  limit: number;
+  current: number;
+  remaining: number;
+  resetTime: Date;
 }

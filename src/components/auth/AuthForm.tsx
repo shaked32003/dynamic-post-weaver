@@ -5,6 +5,8 @@ import { CustomButton } from "@/components/ui/custom-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { authAPI } from "@/services/api";
+import { AuthPayload } from "@/types";
 
 interface AuthFormProps {
   type: "login" | "signup";
@@ -43,18 +45,26 @@ const AuthForm: React.FC<AuthFormProps> = ({ type }) => {
     setIsLoading(true);
 
     try {
-      // This would be replaced with actual API calls
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const authPayload: AuthPayload = {
+        email: formData.email,
+        password: formData.password
+      };
       
-      // Simulate successful auth
+      // Call the appropriate auth API method
+      const response = type === "login" 
+        ? await authAPI.login(authPayload)
+        : await authAPI.signup(authPayload);
+      
+      // Store user data and token
       localStorage.setItem("isAuthenticated", "true");
-      localStorage.setItem("user", JSON.stringify({ email: formData.email }));
+      localStorage.setItem("user", JSON.stringify(response.user));
+      localStorage.setItem("token", response.token);
       
       toast.success(`${type === "login" ? "Logged in" : "Account created"} successfully!`);
       navigate("/dashboard");
     } catch (error) {
       console.error("Authentication error:", error);
-      toast.error("Authentication failed. Please try again.");
+      toast.error(error instanceof Error ? error.message : "Authentication failed. Please try again.");
     } finally {
       setIsLoading(false);
     }
