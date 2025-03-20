@@ -63,31 +63,37 @@ const AdminPanel = () => {
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ["adminStats"],
     queryFn: () => adminAPI.getAdminStats(),
-    onError: (error) => {
-      const errorMsg = error instanceof Error ? error.message : "Failed to load admin stats";
-      toast.error(errorMsg);
-      if (errorMsg.includes("Unauthorized")) {
-        navigate("/dashboard");
+    meta: {
+      onError: (error: Error) => {
+        const errorMsg = error.message || "Failed to load admin stats";
+        toast.error(errorMsg);
+        if (errorMsg.includes("Unauthorized")) {
+          navigate("/dashboard");
+        }
       }
-    },
+    }
   });
 
   // Get all users
   const { data: users, isLoading: usersLoading } = useQuery({
     queryKey: ["adminUsers"],
     queryFn: () => adminAPI.getAllUsers(),
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "Failed to load users");
-    },
+    meta: {
+      onError: (error: Error) => {
+        toast.error(error.message || "Failed to load users");
+      }
+    }
   });
 
   // Get all posts
   const { data: posts, isLoading: postsLoading } = useQuery({
     queryKey: ["adminPosts"],
     queryFn: () => adminAPI.getAllPosts(),
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "Failed to load posts");
-    },
+    meta: {
+      onError: (error: Error) => {
+        toast.error(error.message || "Failed to load posts");
+      }
+    }
   });
 
   // Update user role mutation
@@ -157,7 +163,7 @@ const AdminPanel = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-secondary/20">
-      <Header />
+      <Header isAuthenticated={isAuth} />
       
       <PageTransition>
         <div className="container mx-auto px-4 py-8">
