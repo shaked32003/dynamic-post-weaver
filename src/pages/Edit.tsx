@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Save, Eye, ArrowLeft, Globe, Lock } from "lucide-react";
+import { Save, Eye, ArrowLeft, Globe, Lock, Clock } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import Header from "@/components/layout/Header";
@@ -32,14 +31,12 @@ const Edit = () => {
   });
   const [useWysiwyg, setUseWysiwyg] = useState(true);
 
-  // Check authentication status
   useEffect(() => {
     if (!isAuth) {
       navigate("/login");
     }
   }, [isAuth, navigate]);
 
-  // Fetch post data
   useEffect(() => {
     const fetchPost = async () => {
       if (!id) return;
@@ -98,27 +95,38 @@ const Edit = () => {
   };
 
   const handleScheduleChange = (publishDate: string | undefined) => {
+    const shouldBePublished = publishDate ? false : formData.isPublished;
+    
     setFormData({
       ...formData,
       publishDate,
+      isPublished: shouldBePublished
     });
   };
 
   const togglePublishStatus = () => {
     if (formData.isPublished) {
-      // If it's already published, we're unpublishing it
       setFormData({
         ...formData,
         isPublished: false,
         publishDate: undefined,
       });
     } else {
-      // If it's not published, we're publishing it now
-      setFormData({
-        ...formData,
-        isPublished: true,
-        publishDate: undefined,
-      });
+      if (formData.publishDate) {
+        if (confirm("Do you want to publish immediately instead of using the scheduled date?")) {
+          setFormData({
+            ...formData,
+            isPublished: true,
+            publishDate: undefined,
+          });
+        }
+      } else {
+        setFormData({
+          ...formData,
+          isPublished: true,
+          publishDate: undefined,
+        });
+      }
     }
   };
 
@@ -173,12 +181,18 @@ const Edit = () => {
                   checked={formData.isPublished}
                   onCheckedChange={togglePublishStatus}
                   id="publish-switch"
+                  disabled={!!formData.publishDate && !formData.isPublished}
                 />
                 <Label htmlFor="publish-switch" className="flex items-center">
                   {formData.isPublished ? (
                     <>
                       <Globe size={16} className="mr-1" />
                       Published
+                    </>
+                  ) : formData.publishDate ? (
+                    <>
+                      <Clock size={16} className="mr-1" />
+                      Scheduled
                     </>
                   ) : (
                     <>
