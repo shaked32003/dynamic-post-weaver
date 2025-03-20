@@ -1,7 +1,7 @@
 
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { User } from "@/types";
+import { Post, RateLimitInfo, User } from "@/types";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -53,4 +53,56 @@ export function createPlaceholderImage(width = 1200, height = 630): string {
 // Delay promise resolution (for simulating API calls)
 export function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Functions for post storage
+export function getStoredPosts(): Post[] {
+  const posts = localStorage.getItem("posts");
+  if (!posts) return [];
+  try {
+    return JSON.parse(posts);
+  } catch (error) {
+    console.error("Error parsing posts from localStorage:", error);
+    return [];
+  }
+}
+
+export function savePostsToStorage(posts: Post[]): void {
+  localStorage.setItem("posts", JSON.stringify(posts));
+}
+
+// Functions for rate limiting
+const RATE_LIMITS: { [userId: string]: RateLimitInfo } = {};
+
+export function getUserRateLimit(userId: string): RateLimitInfo {
+  if (!RATE_LIMITS[userId]) {
+    // Initialize rate limit for new users
+    RATE_LIMITS[userId] = {
+      limit: 10, // 10 requests per hour
+      current: 0,
+      remaining: 10,
+      resetTime: new Date(Date.now() + 60 * 60 * 1000) // 1 hour from now
+    };
+  }
+  return RATE_LIMITS[userId];
+}
+
+export function updateUserRateLimit(userId: string): RateLimitInfo {
+  const now = Date.now();
+  const rateLimit = getUserRateLimit(userId);
+  
+  // Reset if past reset time
+  if (now > rateLimit.resetTime.getTime()) {
+    rateLimit.current = 0;
+    rateLimit.remaining = rateLimit.limit;
+    rateLimit.resetTime = new Date(now + 60 * 60 * 1000); // 1 hour from now
+  }
+  
+  // Increment usage
+  rateLimit.current += 1;
+  rateLimit.remaining = Math.max(0, rateLimit.limit - rateLimit.current);
+  
+  // Update storage
+  RATE_LIMITS[userId] = rateLimit;
+  return rateLimit;
 }

@@ -1,3 +1,4 @@
+
 export interface User {
   id?: string;
   email: string;
@@ -59,4 +60,27 @@ export interface AdminStats {
   totalPosts: number;
   publishedPosts: number;
   scheduledPosts: number;
+}
+
+// Adding missing types
+export interface UserCredentials {
+  email: string;
+  password: string;
+}
+
+export interface UserProfile {
+  id?: string;
+  email: string;
+  name?: string;
+  bio?: string;
+  avatarUrl?: string;
+}
+
+export interface PostFormData {
+  title: string;
+  content: string;
+  topic: string;
+  style: string;
+  isPublished?: boolean;
+  publishDate?: string;
 }
