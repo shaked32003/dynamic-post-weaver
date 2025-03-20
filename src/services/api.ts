@@ -1,4 +1,5 @@
 import { delay, generateId, getUserFromStorage } from "@/lib/utils";
+import { OpenAIConfig, isOpenAIConfigured } from "@/config/openai";
 import { 
   Post, 
   GenerateContentPayload, 
@@ -181,9 +182,6 @@ export const authAPI = {
 export const contentAPI = {
   generateContent: async (payload: GenerateContentPayload): Promise<Post> => {
     return apiErrorHandler(async () => {
-      // Simulate API call with longer delay for content generation
-      await delay(3000);
-      
       // Check user authentication
       const user = getUserFromStorage();
       if (!user) {
@@ -196,14 +194,72 @@ export const contentAPI = {
         const resetTime = new Date(rateLimit.resetTime);
         throw new Error(`Rate limit exceeded. Try again after ${resetTime.toLocaleTimeString()}`);
       }
+
+      // Check if OpenAI API key is configured
+      if (!isOpenAIConfigured()) {
+        throw new Error("OpenAI API key is not configured");
+      }
       
-      // Create mock generated content
-      const title = `${payload.topic} in ${payload.style} Style`;
+      let title = '';
+      let content = '';
       
-      // Create content based on topic and style
-      let content = "";
-      
-      if (payload.topic.toLowerCase().includes("technology")) {
+      try {
+        // Create the prompt for OpenAI
+        const prompt = `
+          Write a high-quality blog post about "${payload.topic}" in a ${payload.style} style.
+          The post should have a clear title and well-structured content with sections and bullet points where appropriate.
+          Use markdown formatting. The title should be on the first line starting with "# ".
+        `;
+        
+        // Call the OpenAI API
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${OpenAIConfig.apiKey}`
+          },
+          body: JSON.stringify({
+            model: OpenAIConfig.model,
+            messages: [
+              {
+                role: "system",
+                content: "You are an expert content writer who creates high-quality, informative blog posts in a variety of styles."
+              },
+              {
+                role: "user",
+                content: prompt
+              }
+            ],
+            max_tokens: OpenAIConfig.maxTokens,
+            temperature: OpenAIConfig.temperature
+          })
+        });
+        
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error?.message || "Failed to generate content");
+        }
+        
+        const data = await response.json();
+        const generatedText = data.choices[0]?.message?.content || '';
+        
+        // Extract title and content from markdown
+        const lines = generatedText.split('\n');
+        if (lines[0]?.startsWith('# ')) {
+          title = lines[0].replace('# ', '');
+          content = lines.slice(1).join('\n').trim();
+        } else {
+          title = `${payload.topic} in ${payload.style} Style`;
+          content = generatedText;
+        }
+      } catch (error) {
+        console.error("OpenAI API error:", error);
+        // Fall back to mock content if OpenAI API fails
+        console.log("Falling back to mock content");
+        
+        title = `${payload.topic} in ${payload.style} Style`;
+        
+        // Create mock generated content
         content = `
           # The Evolution of Technology
 
@@ -223,56 +279,6 @@ export const contentAPI = {
 
           Staying informed about technological advancements is essential for businesses and individuals alike. The ability to adapt to these changes will determine success in the digital age.
         `;
-      } else if (payload.topic.toLowerCase().includes("health")) {
-        content = `
-          # Holistic Approaches to Health and Wellness
-
-          Maintaining optimal health involves more than just addressing physical symptoms. A holistic approach considers the interconnectedness of mind, body, and spirit.
-
-          ## Key Components
-
-          - **Nutrition**: A balanced diet provides essential nutrients for bodily functions.
-          - **Physical Activity**: Regular exercise strengthens the body and improves mood.
-          - **Mental Wellbeing**: Practices like meditation reduce stress and promote clarity.
-
-          ## Integrative Practices
-
-          Many people are turning to integrative health practices that combine conventional medicine with complementary approaches. These might include acupuncture, yoga, or herbal supplements.
-
-          ## Preventative Care
-
-          Taking proactive steps to prevent illness is often more effective than treating conditions after they develop. Regular check-ups, screenings, and lifestyle modifications play crucial roles in preventative care.
-        `;
-      } else {
-        content = `
-          # Exploring ${payload.topic}
-
-          ${payload.topic} represents a fascinating area of study with numerous implications for our understanding of the world. This field continues to evolve, offering new insights and applications.
-
-          ## Historical Context
-
-          The development of ${payload.topic} can be traced through various historical periods, each contributing unique perspectives and methodologies. Early pioneers laid the groundwork for modern approaches.
-
-          ## Current Applications
-
-          Today, ${payload.topic} influences multiple sectors:
-
-          1. Research and academia
-          2. Industrial applications
-          3. Consumer products and services
-          4. Educational frameworks
-
-          ## Future Directions
-
-          As we look ahead, several promising avenues for advancement in ${payload.topic} emerge. Continued research and innovation will likely yield breakthroughs that reshape our understanding and implementation.
-        `;
-      }
-      
-      // Adjust style based on input
-      if (payload.style.toLowerCase().includes("professional")) {
-        content = content.replace(/fascinating/g, "significant").replace(/numerous/g, "substantial");
-      } else if (payload.style.toLowerCase().includes("casual")) {
-        content = content.replace(/represents a/g, "is a").replace(/continues to evolve/g, "keeps changing");
       }
       
       return {

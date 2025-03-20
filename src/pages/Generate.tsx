@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -14,6 +13,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { contentAPI, authAPI } from "@/services/api";
 import { isAuthenticated } from "@/lib/utils";
 import { Post, GenerateContentPayload } from "@/types";
+import { isOpenAIConfigured } from "@/config/openai";
+import APIKeyInput from "@/components/settings/APIKeyInput";
 import {
   Select,
   SelectContent,
@@ -40,8 +41,8 @@ const Generate = () => {
     style: "professional",
   });
   const [generatedPost, setGeneratedPost] = useState<Post | null>(null);
+  const [isApiConfigured, setIsApiConfigured] = useState(isOpenAIConfigured());
 
-  // Check authentication status
   React.useEffect(() => {
     if (!isAuth) {
       navigate("/login");
@@ -79,6 +80,11 @@ const Generate = () => {
 
     if (!formData.topic) {
       toast.error("Please enter a topic");
+      return;
+    }
+
+    if (!isApiConfigured) {
+      toast.error("Please add your OpenAI API key first");
       return;
     }
 
@@ -146,6 +152,11 @@ const Generate = () => {
     }
   };
 
+  const handleApiKeySaved = () => {
+    setIsApiConfigured(true);
+    toast.success("API key saved. You can now generate content!");
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-background to-secondary/30">
       <Header isAuthenticated={true} onLogout={handleLogout} />
@@ -158,6 +169,19 @@ const Generate = () => {
           <p className="text-muted-foreground mb-8">
             Describe what you want to write about, and our AI will generate a high-quality post for you.
           </p>
+
+          {!isApiConfigured && (
+            <Card className="mb-8">
+              <CardContent className="pt-6">
+                <h2 className="text-xl font-medium mb-4">API Key Required</h2>
+                <p className="text-muted-foreground mb-4">
+                  To generate content, you need to provide your OpenAI API key. This key will be stored 
+                  securely in your browser's local storage.
+                </p>
+                <APIKeyInput onKeySaved={handleApiKeySaved} />
+              </CardContent>
+            </Card>
+          )}
 
           <Card className="mb-8">
             <CardContent className="pt-6">
@@ -200,6 +224,7 @@ const Generate = () => {
                     isLoading={isGenerating}
                     loadingText="Generating..."
                     className="w-full"
+                    disabled={!isApiConfigured}
                   >
                     Generate content
                   </CustomButton>
