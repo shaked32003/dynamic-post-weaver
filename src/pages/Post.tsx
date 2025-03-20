@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -91,7 +92,7 @@ const Post = () => {
             </div>
           ) : post ? (
             <div className="glassmorphism p-8 md:p-10 rounded-xl shadow-md overflow-hidden">
-              <article className="prose prose-stone dark:prose-invert prose-headings:font-display prose-p:text-base prose-p:leading-relaxed prose-p:my-3 prose-headings:leading-tight prose-li:my-1 prose-img:my-6 max-w-none overflow-auto">
+              <article className="prose prose-stone dark:prose-invert prose-headings:font-display prose-p:text-base prose-p:leading-relaxed prose-p:my-3 prose-headings:leading-tight prose-li:my-1 prose-img:my-6 max-w-none">
                 <h1 className="text-3xl md:text-4xl font-display font-bold mb-4 text-center break-words">
                   {post.title}
                 </h1>
@@ -111,7 +112,7 @@ const Post = () => {
                 <Separator className="my-6" />
 
                 <div className="max-h-[600px] overflow-auto pr-2">
-                  <ReactMarkdown className="text-balance break-words">{post.content}</ReactMarkdown>
+                  <ReactMarkdown className="text-balance whitespace-pre-wrap break-words">{post.content}</ReactMarkdown>
                 </div>
               </article>
             </div>

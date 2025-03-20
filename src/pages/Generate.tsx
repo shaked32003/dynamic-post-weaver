@@ -9,7 +9,6 @@ import Header from "@/components/layout/Header";
 import { CustomButton } from "@/components/ui/custom-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Card, CardContent } from "@/components/ui/card";
 import { contentAPI, authAPI } from "@/services/api";
@@ -171,6 +170,7 @@ const Generate = () => {
                     value={formData.topic}
                     onChange={handleInputChange}
                     disabled={isGenerating}
+                    maxLength={100}
                   />
                 </div>
 
@@ -254,12 +254,16 @@ const Generate = () => {
               <Separator />
 
               <div className="p-6 glassmorphism rounded-lg shadow-md">
-                <h1 className="text-2xl font-bold mb-4">
+                <h1 className="text-2xl font-bold mb-4 break-words">
                   {generatedPost.title}
                 </h1>
-                <article className="prose prose-stone dark:prose-invert max-w-none">
-                  <ReactMarkdown>{generatedPost.content}</ReactMarkdown>
-                </article>
+                <div className="max-h-[500px] overflow-auto pr-2">
+                  <article className="prose prose-stone dark:prose-invert max-w-none break-words">
+                    <ReactMarkdown className="text-balance whitespace-pre-wrap break-words">
+                      {generatedPost.content}
+                    </ReactMarkdown>
+                  </article>
+                </div>
               </div>
             </motion.div>
           )}
