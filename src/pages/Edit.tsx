@@ -1,19 +1,21 @@
 
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Save, Eye, ArrowLeft } from "lucide-react";
+import { Save, Eye, ArrowLeft, Globe, Lock } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import Header from "@/components/layout/Header";
 import { CustomButton } from "@/components/ui/custom-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { contentAPI, authAPI } from "@/services/api";
 import { isAuthenticated } from "@/lib/utils";
 import { Post, SavePostPayload } from "@/types";
 import { Skeleton } from "@/components/ui/skeleton";
+import { WysiwygEditor } from "@/components/editor/WysiwygEditor";
+import { PublishScheduler } from "@/components/editor/PublishScheduler";
+import { Switch } from "@/components/ui/switch";
 
 const Edit = () => {
   const { id } = useParams<{ id: string }>();
@@ -28,6 +30,7 @@ const Edit = () => {
     topic: "",
     style: "",
   });
+  const [useWysiwyg, setUseWysiwyg] = useState(true);
 
   // Check authentication status
   useEffect(() => {
@@ -52,6 +55,7 @@ const Edit = () => {
           topic: fetchedPost.topic,
           style: fetchedPost.style,
           isPublished: fetchedPost.isPublished,
+          publishDate: fetchedPost.publishDate,
         });
       } catch (error) {
         console.error("Error fetching post:", error);
@@ -84,6 +88,38 @@ const Edit = () => {
       ...formData,
       [e.target.id]: e.target.value,
     });
+  };
+
+  const handleContentChange = (content: string) => {
+    setFormData({
+      ...formData,
+      content
+    });
+  };
+
+  const handleScheduleChange = (publishDate: string | undefined) => {
+    setFormData({
+      ...formData,
+      publishDate,
+    });
+  };
+
+  const togglePublishStatus = () => {
+    if (formData.isPublished) {
+      // If it's already published, we're unpublishing it
+      setFormData({
+        ...formData,
+        isPublished: false,
+        publishDate: undefined,
+      });
+    } else {
+      // If it's not published, we're publishing it now
+      setFormData({
+        ...formData,
+        isPublished: true,
+        publishDate: undefined,
+      });
+    }
   };
 
   const handleSave = async () => {
@@ -125,14 +161,43 @@ const Edit = () => {
               <h1 className="text-2xl font-bold font-display">Edit content</h1>
             </div>
 
-            <CustomButton
-              onClick={handleSave}
-              isLoading={isSaving}
-              loadingText="Saving..."
-            >
-              <Save size={16} className="mr-2" />
-              Save changes
-            </CustomButton>
+            <div className="flex items-center gap-2">
+              <PublishScheduler 
+                publishDate={formData.publishDate}
+                isPublished={formData.isPublished}
+                onSchedule={handleScheduleChange}
+              />
+              
+              <div className="flex items-center space-x-2">
+                <Switch
+                  checked={formData.isPublished}
+                  onCheckedChange={togglePublishStatus}
+                  id="publish-switch"
+                />
+                <Label htmlFor="publish-switch" className="flex items-center">
+                  {formData.isPublished ? (
+                    <>
+                      <Globe size={16} className="mr-1" />
+                      Published
+                    </>
+                  ) : (
+                    <>
+                      <Lock size={16} className="mr-1" />
+                      Draft
+                    </>
+                  )}
+                </Label>
+              </div>
+
+              <CustomButton
+                onClick={handleSave}
+                isLoading={isSaving}
+                loadingText="Saving..."
+              >
+                <Save size={16} className="mr-2" />
+                Save changes
+              </CustomButton>
+            </div>
           </div>
 
           {isLoading ? (
@@ -184,15 +249,41 @@ const Edit = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="content">Content</Label>
-                  <Textarea
-                    id="content"
-                    value={formData.content}
-                    onChange={handleInputChange}
-                    placeholder="Write your content in Markdown format"
-                    rows={20}
-                    className="font-mono text-sm"
-                  />
+                  <div className="flex justify-between items-center">
+                    <Label htmlFor="content">Content</Label>
+                    <div className="flex items-center space-x-2">
+                      <Label htmlFor="editor-toggle" className="text-sm">Editor type:</Label>
+                      <div className="flex items-center space-x-1">
+                        <Label htmlFor="editor-toggle" className={`text-xs ${!useWysiwyg ? "font-bold" : ""}`}>
+                          Markdown
+                        </Label>
+                        <Switch
+                          id="editor-toggle"
+                          checked={useWysiwyg}
+                          onCheckedChange={setUseWysiwyg}
+                        />
+                        <Label htmlFor="editor-toggle" className={`text-xs ${useWysiwyg ? "font-bold" : ""}`}>
+                          WYSIWYG
+                        </Label>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {useWysiwyg ? (
+                    <WysiwygEditor
+                      content={formData.content}
+                      onChange={handleContentChange}
+                    />
+                  ) : (
+                    <textarea
+                      id="content"
+                      value={formData.content}
+                      onChange={handleInputChange}
+                      placeholder="Write your content in Markdown format"
+                      rows={20}
+                      className="w-full min-h-[300px] font-mono text-sm rounded-md border border-input bg-background px-3 py-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    />
+                  )}
                 </div>
               </TabsContent>
 
