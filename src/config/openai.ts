@@ -1,8 +1,8 @@
 
 // OpenAI API configuration
 export const OpenAIConfig = {
-  apiKey: process.env.OPENAI_API_KEY || localStorage.getItem('openai_api_key') || '',
-  model: 'gpt-4-turbo',
+  apiKey: localStorage.getItem('openai_api_key') || '',
+  model: 'gpt-4o',
   maxTokens: 1500,
   temperature: 0.7,
 };
