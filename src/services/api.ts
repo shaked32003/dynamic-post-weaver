@@ -1,118 +1,20 @@
-import { delay, generateId, getUserFromStorage } from "@/lib/utils";
-import { OpenAIConfig, isOpenAIConfigured } from "@/config/openai";
-import { 
-  Post, 
-  GenerateContentPayload, 
-  SavePostPayload,
-  AuthPayload,
-  User,
-  AuthResponse,
-  RateLimitInfo,
-  AdminStats
-} from "@/types";
+import { delay, getUserFromStorage, updateUserRateLimit } from '@/lib/utils';
+import { GenerateContentPayload, Post, PostFormData, UserCredentials, UserProfile } from '@/types';
+import { OpenAIConfig, isOpenAIConfigured } from '@/config/openai';
 
-// This is a mock API service for frontend development
-// In a real application, these functions would make actual API calls
-
-// Simulate a database with localStorage
-const POSTS_STORAGE_KEY = "content_forge_posts";
-const RATE_LIMIT_STORAGE_KEY = "content_forge_rate_limits";
-const RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour in milliseconds
-const MAX_REQUESTS_PER_HOUR = 20;
-
-// Helper function to get posts from localStorage
-const getStoredPosts = (): Post[] => {
-  const postsString = localStorage.getItem(POSTS_STORAGE_KEY);
-  return postsString ? JSON.parse(postsString) : [];
-};
-
-// Helper function to save posts to localStorage
-const savePostsToStorage = (posts: Post[]): void => {
-  localStorage.setItem(POSTS_STORAGE_KEY, JSON.stringify(posts));
-};
-
-// Rate limiting functions
-const getUserRateLimit = (userId: string): RateLimitInfo => {
-  const rateLimitsString = localStorage.getItem(RATE_LIMIT_STORAGE_KEY);
-  const rateLimits = rateLimitsString ? JSON.parse(rateLimitsString) : {};
-  
-  if (!rateLimits[userId]) {
-    const newLimit: RateLimitInfo = {
-      limit: MAX_REQUESTS_PER_HOUR,
-      current: 0,
-      remaining: MAX_REQUESTS_PER_HOUR,
-      resetTime: new Date(Date.now() + RATE_LIMIT_WINDOW)
-    };
-    rateLimits[userId] = newLimit;
-    localStorage.setItem(RATE_LIMIT_STORAGE_KEY, JSON.stringify(rateLimits));
-    return newLimit;
+// Utility function to handle API errors consistently
+const apiErrorHandler = async <T>(
+  apiCall: () => Promise<T>
+): Promise<T> => {
+  try {
+    return await apiCall();
+  } catch (error) {
+    console.error('API Error:', error);
+    throw error;
   }
-  
-  // Check if we need to reset the rate limit
-  const limitData = rateLimits[userId];
-  const resetTime = new Date(limitData.resetTime);
-  
-  if (Date.now() > resetTime.getTime()) {
-    // Reset the rate limit
-    limitData.current = 0;
-    limitData.remaining = MAX_REQUESTS_PER_HOUR;
-    limitData.resetTime = new Date(Date.now() + RATE_LIMIT_WINDOW);
-    localStorage.setItem(RATE_LIMIT_STORAGE_KEY, JSON.stringify(rateLimits));
-  }
-  
-  return limitData;
 };
 
-const updateUserRateLimit = (userId: string): RateLimitInfo => {
-  const rateLimitsString = localStorage.getItem(RATE_LIMIT_STORAGE_KEY);
-  const rateLimits = rateLimitsString ? JSON.parse(rateLimitsString) : {};
-  
-  if (!rateLimits[userId]) {
-    return getUserRateLimit(userId);
-  }
-  
-  const limitData = rateLimits[userId];
-  const resetTime = new Date(limitData.resetTime);
-  
-  if (Date.now() > resetTime.getTime()) {
-    // Reset the rate limit
-    limitData.current = 1;
-    limitData.remaining = MAX_REQUESTS_PER_HOUR - 1;
-    limitData.resetTime = new Date(Date.now() + RATE_LIMIT_WINDOW);
-  } else {
-    // Increment the request count
-    limitData.current += 1;
-    limitData.remaining = Math.max(0, limitData.limit - limitData.current);
-  }
-  
-  rateLimits[userId] = limitData;
-  localStorage.setItem(RATE_LIMIT_STORAGE_KEY, JSON.stringify(rateLimits));
-  return limitData;
-};
-
-// Error handling wrapper
-const apiErrorHandler = <T>(apiCall: () => Promise<T>): Promise<T> => {
-  return apiCall().catch(error => {
-    console.error("API Error:", error);
-    
-    // Log the error (in a real app, this might send to a logging service)
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    const errorLog = {
-      timestamp: new Date().toISOString(),
-      error: errorMessage,
-      stack: error instanceof Error ? error.stack : undefined
-    };
-    
-    // Store error logs (in a real app, this would go to a proper logging system)
-    const errorLogs = JSON.parse(localStorage.getItem("error_logs") || "[]");
-    errorLogs.push(errorLog);
-    localStorage.setItem("error_logs", JSON.stringify(errorLogs));
-    
-    throw error; // Re-throw to let the UI handle it
-  });
-};
-
-// Authentication
+// API endpoints for authentication
 export const authAPI = {
   login: async (payload: AuthPayload): Promise<AuthResponse> => {
     return apiErrorHandler(async () => {
@@ -178,7 +80,7 @@ export const authAPI = {
   }
 };
 
-// Content generation and management
+// API endpoints for content management
 export const contentAPI = {
   generateContent: async (payload: GenerateContentPayload): Promise<Post> => {
     return apiErrorHandler(async () => {
@@ -194,104 +96,24 @@ export const contentAPI = {
         const resetTime = new Date(rateLimit.resetTime);
         throw new Error(`Rate limit exceeded. Try again after ${resetTime.toLocaleTimeString()}`);
       }
-
-      // Check if OpenAI API key is configured
-      if (!isOpenAIConfigured()) {
-        throw new Error("OpenAI API key is not configured");
-      }
       
-      let title = '';
-      let content = '';
-      
-      try {
-        // Create the prompt for OpenAI
-        const prompt = `
-          Write a high-quality blog post about "${payload.topic}" in a ${payload.style} style.
-          The post should have a clear title and well-structured content with sections and bullet points where appropriate.
-          Use markdown formatting. The title should be on the first line starting with "# ".
-        `;
-        
-        // Call the OpenAI API
-        const response = await fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${OpenAIConfig.apiKey}`
-          },
-          body: JSON.stringify({
-            model: OpenAIConfig.model,
-            messages: [
-              {
-                role: "system",
-                content: "You are an expert content writer who creates high-quality, informative blog posts in a variety of styles."
-              },
-              {
-                role: "user",
-                content: prompt
-              }
-            ],
-            max_tokens: OpenAIConfig.maxTokens,
-            temperature: OpenAIConfig.temperature
-          })
-        });
-        
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error?.message || "Failed to generate content");
+      // If OpenAI is configured, use the API
+      if (isOpenAIConfigured()) {
+        try {
+          console.log("Generating content with OpenAI API");
+          const generatedContent = await generateWithOpenAI(payload);
+          return generatedContent;
+        } catch (error) {
+          console.error("OpenAI API error:", error);
+          console.log("Falling back to mock content generation");
+          // Fall back to mock generation if API fails
+          return generateMockContent(payload);
         }
-        
-        const data = await response.json();
-        const generatedText = data.choices[0]?.message?.content || '';
-        
-        // Extract title and content from markdown
-        const lines = generatedText.split('\n');
-        if (lines[0]?.startsWith('# ')) {
-          title = lines[0].replace('# ', '');
-          content = lines.slice(1).join('\n').trim();
-        } else {
-          title = `${payload.topic} in ${payload.style} Style`;
-          content = generatedText;
-        }
-      } catch (error) {
-        console.error("OpenAI API error:", error);
-        // Fall back to mock content if OpenAI API fails
-        console.log("Falling back to mock content");
-        
-        title = `${payload.topic} in ${payload.style} Style`;
-        
-        // Create mock generated content
-        content = `
-          # The Evolution of Technology
-
-          In today's rapidly advancing technological landscape, innovation is the key driver of progress. From artificial intelligence to quantum computing, the boundaries of what's possible are constantly expanding.
-
-          ## Current Trends
-
-          - **Artificial Intelligence**: Machine learning algorithms are becoming more sophisticated.
-          - **Blockchain**: Decentralized applications are revolutionizing finance.
-          - **Internet of Things**: Connected devices are creating smarter homes and cities.
-
-          ## Future Implications
-
-          As these technologies evolve, we can expect significant changes in how we work, communicate, and live. The integration of AI into everyday tools will automate routine tasks, while blockchain may transform how we verify transactions and maintain records.
-
-          ## Conclusion
-
-          Staying informed about technological advancements is essential for businesses and individuals alike. The ability to adapt to these changes will determine success in the digital age.
-        `;
+      } else {
+        console.log("OpenAI not configured, using mock content");
+        // Use mock generation if OpenAI is not configured
+        return generateMockContent(payload);
       }
-      
-      return {
-        id: generateId(),
-        title,
-        content,
-        topic: payload.topic,
-        style: payload.style,
-        isPublished: false,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        userId: user.id || "unknown",
-      };
     });
   },
   
@@ -476,6 +298,124 @@ export const contentAPI = {
       return getUserRateLimit(user.id || "unknown");
     });
   }
+};
+
+// Function to generate content with OpenAI
+const generateWithOpenAI = async (payload: GenerateContentPayload): Promise<Post> => {
+  // Simulate API delay
+  await delay(1500);
+  
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OpenAIConfig.apiKey}`
+      },
+      body: JSON.stringify({
+        model: OpenAIConfig.model,
+        messages: [
+          {
+            role: "system",
+            content: "You are a professional content writer. Create a blog post that is well-structured with headings, subheadings, and paragraphs. Include an introduction and conclusion."
+          },
+          {
+            role: "user",
+            content: `Write a ${payload.style} blog post about ${payload.topic}. Use markdown formatting with # for title, ## for headings, and other markdown elements as needed.`
+          }
+        ],
+        max_tokens: OpenAIConfig.maxTokens,
+        temperature: OpenAIConfig.temperature
+      })
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error?.message || 'Failed to generate content with OpenAI');
+    }
+    
+    const data = await response.json();
+    const content = data.choices[0].message.content;
+    
+    // Extract title and content
+    const lines = content.split('\n');
+    let title = payload.topic;
+    let blogContent = content;
+    
+    // Try to extract title from the first line if it starts with #
+    if (lines[0].startsWith('# ')) {
+      title = lines[0].substring(2);
+      blogContent = lines.slice(1).join('\n');
+    }
+    
+    return {
+      id: `draft-${Date.now()}`,
+      title: title,
+      content: blogContent,
+      topic: payload.topic,
+      style: payload.style,
+      isPublished: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      userId: getUserFromStorage()?.id || 'unknown',
+    };
+  } catch (error) {
+    console.error('OpenAI API Error:', error);
+    throw error;
+  }
+};
+
+// Function to generate mock content for fallback
+const generateMockContent = (payload: GenerateContentPayload): Post => {
+  const title = `${payload.topic} in ${payload.style} Style`;
+  
+  // Create content based on topic and style
+  let content = "";
+  
+  // Introduction
+  content += `## Introduction\n\n`;
+  content += `This is an introduction to ${payload.topic}. It sets the stage for the rest of the article and captures the reader's attention.\n\n`;
+  
+  // Main content sections
+  content += `## Understanding ${payload.topic}\n\n`;
+  content += `Here we explore the key aspects of ${payload.topic} and why it matters in today's world.\n\n`;
+  
+  content += `## Key Benefits\n\n`;
+  content += `- Benefit 1: Improved efficiency and productivity\n`;
+  content += `- Benefit 2: Better outcomes and results\n`;
+  content += `- Benefit 3: Enhanced user experience\n\n`;
+  
+  // Add more content based on style
+  if (payload.style === "technical") {
+    content += `## Technical Implementation\n\n`;
+    content += `When implementing solutions related to ${payload.topic}, consider these technical aspects:\n\n`;
+    content += `1. Architecture design\n`;
+    content += `2. Performance optimization\n`;
+    content += `3. Security considerations\n\n`;
+    content += `\`\`\`\nExample code or configuration\n\`\`\`\n\n`;
+  } else if (payload.style === "casual") {
+    content += `## My Personal Experience\n\n`;
+    content += `Let me share a story about how ${payload.topic} changed my perspective. It was a sunny afternoon when...\n\n`;
+  } else if (payload.style === "persuasive") {
+    content += `## Why You Should Act Now\n\n`;
+    content += `The time to embrace ${payload.topic} is now. Those who wait will miss out on these critical advantages that early adopters are already enjoying.\n\n`;
+  }
+  
+  // Conclusion
+  content += `## Conclusion\n\n`;
+  content += `In summary, ${payload.topic} represents a significant opportunity that should not be overlooked. The insights shared in this article provide a foundation for further exploration and application.\n\n`;
+  
+  return {
+    id: `draft-${Date.now()}`,
+    title,
+    content,
+    topic: payload.topic,
+    style: payload.style,
+    isPublished: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    userId: getUserFromStorage()?.id || 'unknown',
+  };
 };
 
 // Admin API
