@@ -56,7 +56,7 @@ export const WysiwygEditor: React.FC<WysiwygEditorProps> = ({
     },
     editorProps: {
       attributes: {
-        class: "prose prose-stone dark:prose-invert prose-headings:font-display prose-p:text-base prose-p:leading-relaxed prose-p:my-3 prose-headings:leading-tight prose-li:my-1 prose-img:my-6 max-w-none focus:outline-none min-h-[300px] p-6",
+        class: "prose prose-stone dark:prose-invert prose-headings:font-display prose-p:text-base prose-p:leading-relaxed prose-p:my-3 prose-headings:leading-tight prose-li:my-1 prose-img:my-6 max-w-none focus:outline-none min-h-[300px] p-6 overflow-auto",
       },
     },
   });
@@ -237,8 +237,8 @@ export const WysiwygEditor: React.FC<WysiwygEditorProps> = ({
         </div>
       )}
 
-      <div className="editor-container bg-background/50">
-        <EditorContent editor={editor} />
+      <div className="editor-container bg-background/50 max-h-[500px] overflow-auto">
+        <EditorContent editor={editor} className="overflow-auto" />
       </div>
     </div>
   );

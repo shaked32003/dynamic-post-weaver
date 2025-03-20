@@ -238,6 +238,7 @@ const Edit = () => {
                     onChange={handleInputChange}
                     placeholder="Enter a title"
                     className="font-medium"
+                    maxLength={100}
                   />
                 </div>
 
@@ -249,6 +250,7 @@ const Edit = () => {
                       value={formData.topic}
                       onChange={handleInputChange}
                       placeholder="E.g., Technology, Health, Business"
+                      maxLength={50}
                     />
                   </div>
 
@@ -259,6 +261,7 @@ const Edit = () => {
                       value={formData.style}
                       onChange={handleInputChange}
                       placeholder="E.g., Professional, Casual, Technical"
+                      maxLength={50}
                     />
                   </div>
                 </div>
@@ -296,16 +299,17 @@ const Edit = () => {
                       onChange={handleInputChange}
                       placeholder="Write your content in Markdown format"
                       rows={20}
-                      className="w-full min-h-[300px] font-mono text-sm rounded-md border border-input bg-background px-3 py-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      maxLength={50000}
+                      className="w-full min-h-[300px] max-h-[500px] overflow-auto font-mono text-sm rounded-md border border-input bg-background px-3 py-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     />
                   )}
                 </div>
               </TabsContent>
 
               <TabsContent value="preview">
-                <div className="glassmorphism p-8 rounded-lg shadow-md">
+                <div className="glassmorphism p-8 rounded-lg shadow-md overflow-auto max-h-[700px]">
                   <h1 className="text-3xl font-bold mb-6 font-display">{formData.title || "Untitled"}</h1>
-                  <article className="prose prose-stone dark:prose-invert prose-headings:font-display prose-p:text-base prose-p:leading-relaxed prose-p:my-3 prose-headings:leading-tight prose-li:my-1 prose-img:my-6 max-w-none">
+                  <article className="prose prose-stone dark:prose-invert prose-headings:font-display prose-p:text-base prose-p:leading-relaxed prose-p:my-3 prose-headings:leading-tight prose-li:my-1 prose-img:my-6 max-w-none overflow-auto">
                     <ReactMarkdown>{formData.content || "No content yet. Start writing in the editor tab!"}</ReactMarkdown>
                   </article>
                 </div>
